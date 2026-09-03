@@ -1,0 +1,17 @@
+langgraph
+langchain-anthropic
+supabase
+python-dotenv
+requests
+pydantic>=2
+pydantic-settings
+tenacity
+streamlit
+diffusers
+transformers
+accelerate
+Pillow
+
+# torch/torchvision are NOT installed by this file — pip's default `torch` on Windows is a
+# CPU-only build even on a machine with an NVIDIA GPU. Install them separately first with the
+# CUDA-matched command from README.md (Setup step 2), then run this requirements.txt.
