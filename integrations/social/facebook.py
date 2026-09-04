@@ -72,8 +72,13 @@ class FacebookPublisher:
             "sample_size": None,
         }
 
-    def publish_image(self, image_bytes: bytes, caption: str, content_type: str = "image/png") -> dict:
-        raw = self._post_multipart(f"{settings.fb_page_id}/photos", {"caption": caption}, image_bytes, content_type)
+    def publish_image(
+        self, image_bytes: bytes, caption: str, content_type: str = "image/png", alt_text: str | None = None
+    ) -> dict:
+        data = {"caption": caption}
+        if alt_text:
+            data["alt_text_custom"] = alt_text
+        raw = self._post_multipart(f"{settings.fb_page_id}/photos", data, image_bytes, content_type)
         return {"post_id": raw.get("post_id") or raw.get("id"), "permalink": None, "raw": raw}
 
     def publish_video(self, video_url: str, caption: str) -> dict:

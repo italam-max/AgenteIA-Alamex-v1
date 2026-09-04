@@ -17,7 +17,7 @@ def test_publish_image_uploads_media_then_posts_status(mock_post):
     status_response = _mock_response({"id": "status-1", "url": "https://instance/@user/status-1"}, status_code=200)
     mock_post.side_effect = [upload_response, status_response]
 
-    result = MastodonPublisher().publish_image(b"fake-image-bytes", "Hello Mastodon")
+    result = MastodonPublisher().publish_image(b"fake-image-bytes", "Hello Mastodon", alt_text="A red bicycle")
 
     assert result == {
         "post_id": "status-1",
@@ -28,6 +28,7 @@ def test_publish_image_uploads_media_then_posts_status(mock_post):
     upload_call = mock_post.call_args_list[0]
     assert upload_call.args[0].endswith("/api/v2/media")
     assert upload_call.kwargs["headers"]["Authorization"] == "Bearer test-mastodon-token"
+    assert upload_call.kwargs["data"] == {"description": "A red bicycle"}
 
     status_call = mock_post.call_args_list[1]
     assert status_call.kwargs["data"]["status"] == "Hello Mastodon"

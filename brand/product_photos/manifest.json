@@ -1,0 +1,74 @@
+[
+  {
+    "filename": "hyd_bomba_hidraulica.png",
+    "tags": [
+      "HYD",
+      "hidráulico",
+      "bomba hidráulica",
+      "componente",
+      "cuarto de máquinas"
+    ],
+    "description": "Fotografía de estudio de una central hidráulica Alamex: gabinete metálico gris abierto mostrando la bomba, válvulas y conexiones internas."
+  },
+  {
+    "filename": "mrl_maquina_traccion_gearless_1.png",
+    "tags": [
+      "MRL-L",
+      "gearless",
+      "máquina de tracción",
+      "motor",
+      "componente",
+      "sin cuarto de máquinas"
+    ],
+    "description": "Fotografía de estudio de una máquina de tracción gearless Alamex (630 kg, 4 kW, 1 m/s), cuerpo azul con placa de datos ALAMEX visible, vista de tres cuartos."
+  },
+  {
+    "filename": "mrl_maquina_traccion_gearless_2.png",
+    "tags": [
+      "MRL-L",
+      "gearless",
+      "máquina de tracción",
+      "motor",
+      "componente",
+      "sin cuarto de máquinas"
+    ],
+    "description": "Fotografía de estudio de la misma máquina de tracción gearless Alamex, vista lateral mostrando el cableado y la caja de conexiones."
+  },
+  {
+    "filename": "mrl_maquina_traccion_gearless_3.png",
+    "tags": [
+      "MRL-L",
+      "gearless",
+      "máquina de tracción",
+      "motor",
+      "componente",
+      "polea",
+      "sin cuarto de máquinas"
+    ],
+    "description": "Fotografía de estudio de la máquina de tracción gearless Alamex de frente, mostrando la polea/sheave acanalada en amarillo/naranja."
+  },
+  {
+    "filename": "botonera_piso_display_acero.png",
+    "tags": [
+      "botonera",
+      "LOP",
+      "señalización",
+      "accesibilidad",
+      "componente",
+      "display"
+    ],
+    "description": "Fotografía de estudio de una botonera de piso Alamex en acero cepillado, con display de piso y botón redondo con flecha de dirección."
+  },
+  {
+    "filename": "botonera_piso_display_bronce.png",
+    "tags": [
+      "botonera",
+      "LOP",
+      "señalización",
+      "accesibilidad",
+      "componente",
+      "display"
+    ],
+    "description": "Fotografía de estudio de una botonera de piso Alamex en acabado bronce/acero oscuro, con display de piso y botón redondo con flecha de dirección."
+  }
+]

@@ -1,6 +1,6 @@
 # Agentes de Marketing — MVP Semana 1
 
-Gerente de Marketing (agente supervisor) + Social Media (agente subordinado) sobre LangGraph + API de Claude. La generación de imagen corre localmente (Stable Diffusion vía `diffusers`, sin créditos de API por imagen — video queda pospuesto por ahora, ver `integrations/media/`). La publicación es agnóstica de plataforma (`integrations/social/`, contrato `SocialPublisher`): hoy hay adaptadores para Facebook y Mastodon, agregar una red nueva es escribir un adaptador más, sin tocar los agentes. Estado, métricas e imágenes generadas quedan en Supabase.
+Gerente de Marketing (agente supervisor) + Social Media (agente subordinado) sobre LangGraph + API de Claude. La generación de imagen es agnóstica de backend (`integrations/media/`, contrato `MediaGenerator`): por defecto corre localmente (Stable Diffusion vía `diffusers`, sin créditos de API por imagen), y también hay adaptadores hospedados (Leonardo, fal.ai, Gemini, Higgsfield) seleccionables con `MEDIA_GENERATOR` en `.env` — video queda pospuesto por ahora. La publicación es agnóstica de plataforma (`integrations/social/`, contrato `SocialPublisher`): hoy hay adaptadores para Facebook y Mastodon, agregar una red nueva es escribir un adaptador más, sin tocar los agentes. Estado, métricas e imágenes generadas quedan en Supabase.
 
 ## Setup
 
@@ -30,6 +30,16 @@ python scripts/smoke_test.py --publish  # además genera 1 imagen local y public
 ```
 python main.py "encárgate de la publicidad de esta semana"
 ```
+
+El supervisor analiza desempeño reciente y decide cuántos posts hacer y de qué — pensado para uso semanal, no para pruebas rápidas.
+
+## Publicar un post puntual, ahora mismo
+
+```
+python post_now.py "tema o brief del post, ej. la máquina gearless del MRL-L"
+```
+
+Salta la planeación semanal (no analiza engagement ni decide cuántos posts) y genera+publica un solo post directo — útil para pruebas o cuando ya sabes exactamente qué quieres publicar.
 
 ## Ver qué están haciendo los agentes
 

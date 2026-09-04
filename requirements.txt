@@ -6,11 +6,13 @@ requests
 pydantic>=2
 pydantic-settings
 tenacity
+higgsfield-client
 streamlit
 diffusers
 transformers
 accelerate
 Pillow
+rembg[cpu]
 
 # torch/torchvision are NOT installed by this file — pip's default `torch` on Windows is a
 # CPU-only build even on a machine with an NVIDIA GPU. Install them separately first with the

@@ -3,6 +3,7 @@ from functools import lru_cache
 from integrations.media.base import MediaGenerator
 from integrations.media.fal import FalGenerator
 from integrations.media.gemini import GeminiGenerator
+from integrations.media.higgsfield import HiggsfieldGenerator
 from integrations.media.leonardo import LeonardoGenerator
 from integrations.media.local_diffusers import LocalDiffusersGenerator
 
@@ -11,6 +12,7 @@ _ADAPTERS: dict[str, type] = {
     "leonardo": LeonardoGenerator,
     "fal": FalGenerator,
     "gemini": GeminiGenerator,
+    "higgsfield": HiggsfieldGenerator,
 }
 
 

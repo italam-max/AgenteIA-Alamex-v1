@@ -64,11 +64,14 @@ class MastodonPublisher:
         return {"impressions": None, "engaged_users": engaged_users, "period": period, "sample_size": len(recent)}
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
-    def _upload_media_bytes(self, media_bytes: bytes, content_type: str) -> str:
+    def _upload_media_bytes(self, media_bytes: bytes, content_type: str, alt_text: str | None = None) -> str:
+        # `description` is Mastodon's alt-text field — shown to screen readers and expected by
+        # fediverse etiquette; posting images without it is a known community pet peeve.
         response = requests.post(
             self._url("/api/v2/media"),
             headers=self._headers(),
             files={"file": ("media", media_bytes, content_type)},
+            data={"description": alt_text} if alt_text else None,
             timeout=120,
         )
         response.raise_for_status()
@@ -105,8 +108,10 @@ class MastodonPublisher:
         raw = response.json()
         return {"post_id": raw["id"], "permalink": raw.get("url"), "raw": raw}
 
-    def publish_image(self, image_bytes: bytes, caption: str, content_type: str = "image/png") -> dict:
-        media_id = self._upload_media_bytes(image_bytes, content_type)
+    def publish_image(
+        self, image_bytes: bytes, caption: str, content_type: str = "image/png", alt_text: str | None = None
+    ) -> dict:
+        media_id = self._upload_media_bytes(image_bytes, content_type, alt_text)
         return self._post_status(caption, media_id)
 
     def publish_video(self, video_url: str, caption: str) -> dict:

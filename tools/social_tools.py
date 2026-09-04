@@ -31,11 +31,13 @@ def get_engagement_summary(platform: str, period: str = "week") -> dict:
 
 
 @tool
-def publish_image_post(platform: str, image_bytes: bytes, caption: str) -> dict:
-    """Publish an image post (raw PNG bytes) with a caption to a social platform. Returns {post_id, permalink, caption}."""
+def publish_image_post(platform: str, image_bytes: bytes, caption: str, alt_text: str | None = None) -> dict:
+    """Publish an image post (raw PNG bytes) with a caption to a social platform. `alt_text` is an
+    accessibility description of the image, shown to screen readers (Mastodon/Facebook display this
+    to users too). Returns {post_id, permalink, caption}."""
     publisher = get_publisher(platform)
     final_caption = _truncate_caption(caption, publisher.max_caption_length)
-    result = publisher.publish_image(image_bytes, final_caption)
+    result = publisher.publish_image(image_bytes, final_caption, alt_text=alt_text)
     return {**result, "caption": final_caption}
 
 

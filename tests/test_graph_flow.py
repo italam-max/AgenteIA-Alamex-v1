@@ -41,7 +41,13 @@ def test_graph_happy_path_publishes_one_post(
     sup_sonnet.return_value = _fake_llm(strategy)
 
     sm_sonnet.return_value = _fake_llm(
-        PostContent(caption="Conoce nuestra marca", media_prompt="brand intro visual, on-brand colors")
+        PostContent(
+            caption="Conoce nuestra marca",
+            media_prompt="brand intro visual, on-brand colors",
+            headline="Conoce Alamex",
+            bullets=[],
+            image_alt_text="Fotografía de un elevador moderno en un edificio",
+        )
     )
     sm_media_tools.generate_image.invoke.return_value = b"fake-png-bytes"
     sm_supabase_tools.upload_media.invoke.return_value = "https://example.supabase.co/storage/v1/object/public/post-media/x.png"

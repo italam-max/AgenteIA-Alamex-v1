@@ -46,10 +46,11 @@ def test_get_recent_posts_normalizes_shape(mock_get):
 def test_publish_image_uploads_bytes_and_normalizes_result(mock_post):
     mock_post.return_value = _mock_response({"id": "789", "post_id": "123456_789"})
 
-    result = FacebookPublisher().publish_image(b"fake-png-bytes", "Hello world")
+    result = FacebookPublisher().publish_image(b"fake-png-bytes", "Hello world", alt_text="A red bicycle")
 
     assert result["post_id"] == "123456_789"
     sent_data = mock_post.call_args.kwargs["data"]
     assert sent_data["caption"] == "Hello world"
+    assert sent_data["alt_text_custom"] == "A red bicycle"
     sent_files = mock_post.call_args.kwargs["files"]
     assert sent_files["source"][1] == b"fake-png-bytes"

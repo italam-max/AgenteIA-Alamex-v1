@@ -13,6 +13,7 @@ _REQUIRED_FIELDS_BY_MEDIA_GENERATOR = {
     "leonardo": ["leonardo_api_key"],
     "fal": ["fal_api_key"],
     "gemini": ["gemini_api_key"],
+    "higgsfield": ["higgsfield_api_key_id", "higgsfield_api_key_secret"],
 }
 
 
@@ -37,6 +38,11 @@ class Settings(BaseSettings):
     # Gemini (integrations/media/gemini.py) — supports a reference image (e.g. the brand logo).
     gemini_api_key: str | None = None
     gemini_image_model_id: str = "gemini-2.5-flash-image"
+
+    # Higgsfield AI (integrations/media/higgsfield.py) — "Soul" model, paid hosted API.
+    higgsfield_api_key_id: str | None = None
+    higgsfield_api_key_secret: str | None = None
+    higgsfield_model_id: str = "higgsfield-ai/soul/v2/standard"
 
     enabled_platforms_raw: str = Field(default="facebook", validation_alias="ENABLED_PLATFORMS")
 
