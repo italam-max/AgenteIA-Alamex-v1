@@ -117,3 +117,70 @@ class MastodonPublisher:
     def publish_video(self, video_url: str, caption: str) -> dict:
         media_id = self._upload_media_from_url(video_url, "video/mp4")
         return self._post_status(caption, media_id)
+
+    # --- Growth mission only (agents/growth_mission.py) — see integrations/social/growth_base.py ---
+
+    def get_account_stats(self) -> dict:
+        response = requests.get(
+            self._url(f"/api/v1/accounts/{self._account_id()}"), headers=self._headers(), timeout=30
+        )
+        response.raise_for_status()
+        account = response.json()
+        return {
+            "followers_count": account["followers_count"],
+            "following_count": account["following_count"],
+            "statuses_count": account["statuses_count"],
+        }
+
+    def get_notifications(self, limit: int = 20) -> list[dict]:
+        response = requests.get(
+            self._url("/api/v1/notifications"),
+            params={"limit": limit, "types[]": "mention"},
+            headers=self._headers(),
+            timeout=30,
+        )
+        response.raise_for_status()
+        return [
+            {
+                "status_id": notification["status"]["id"],
+                "account_id": notification["account"]["id"],
+                "text": notification["status"].get("content", ""),
+            }
+            for notification in response.json()
+            if notification.get("status")
+        ]
+
+    def reply_to_status(self, status_id: str, text: str) -> dict:
+        response = requests.post(
+            self._url("/api/v1/statuses"),
+            headers=self._headers(),
+            data={"status": text, "in_reply_to_id": status_id},
+            timeout=30,
+        )
+        response.raise_for_status()
+        raw = response.json()
+        return {"post_id": raw["id"], "permalink": raw.get("url"), "raw": raw}
+
+    def search_accounts_by_hashtag(self, hashtag: str, limit: int = 20) -> list[dict]:
+        response = requests.get(
+            self._url(f"/api/v1/timelines/tag/{hashtag.lstrip('#')}"),
+            params={"limit": limit},
+            headers=self._headers(),
+            timeout=30,
+        )
+        response.raise_for_status()
+        own_id = self._account_id()
+        seen: dict[str, dict] = {}
+        for status in response.json():
+            account = status.get("account") or {}
+            account_id = account.get("id")
+            if account_id and account_id != own_id and account_id not in seen:
+                seen[account_id] = {"account_id": account_id, "username": account.get("username", "")}
+        return list(seen.values())
+
+    def follow_account(self, account_id: str) -> dict:
+        response = requests.post(
+            self._url(f"/api/v1/accounts/{account_id}/follow"), headers=self._headers(), timeout=30
+        )
+        response.raise_for_status()
+        return {"account_id": account_id, "raw": response.json()}

@@ -15,3 +15,14 @@ class MediaGenerator(Protocol):
         backends ignore it and fall back to text-only generation.
         """
         ...
+
+
+class VideoGenerator(Protocol):
+    """
+    Common contract for silent b-roll video backends. Add one by writing a class that satisfies
+    this contract and registering it in integrations/media/registry.py's `_VIDEO_ADAPTERS`.
+    """
+
+    def generate_video(self, prompt: str, aspect_ratio: str = "9:16") -> bytes:
+        """Returns mp4 bytes for a short silent clip. `prompt` describes the visual scene only."""
+        ...

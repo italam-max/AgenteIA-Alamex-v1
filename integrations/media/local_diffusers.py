@@ -1,8 +1,5 @@
 import io
 
-import torch
-from diffusers import StableDiffusionPipeline
-
 from config.settings import settings
 
 # width, height — kept at 512-ish and multiples of 8 to stay comfortable on a 4GB GPU.
@@ -15,14 +12,22 @@ _ASPECT_RATIO_DIMENSIONS = {
 
 
 class LocalDiffusersGenerator:
-    """Runs Stable Diffusion locally via the `diffusers` library. No external API/credits involved."""
+    """
+    Runs Stable Diffusion locally via the `diffusers` library. No external API/credits involved.
+    `torch`/`diffusers` are imported lazily inside _load_pipeline (not at module level) — they're
+    a ~700MB, ~25s-to-import dependency that every process touching tools/media_tools.py would
+    otherwise pay for even when MEDIA_GENERATOR isn't "local".
+    """
 
     def __init__(self) -> None:
         self._pipe = None
 
-    def _load_pipeline(self) -> StableDiffusionPipeline:
+    def _load_pipeline(self):
         if self._pipe is not None:
             return self._pipe
+
+        import torch
+        from diffusers import StableDiffusionPipeline
 
         pipe = StableDiffusionPipeline.from_pretrained(
             settings.local_image_model_id,

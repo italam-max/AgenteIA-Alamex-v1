@@ -19,12 +19,17 @@ def haiku() -> ChatAnthropic:
     return ChatAnthropic(model="claude-haiku-4-5", api_key=settings.anthropic_api_key, temperature=0)
 
 
-def cached_system_message(agent_prompt_path: Path) -> SystemMessage:
+def cached_system_message(agent_prompt_path: Path, ttl: str | None = None) -> SystemMessage:
     """
     Builds a SystemMessage with the agent's static instructions + brand guidelines marked as an
     Anthropic ephemeral cache breakpoint. Only the *static* text goes here — any per-run variable
     data (dates, metrics) must be added to the user turn instead, or it will invalidate the cache
     on every run.
+
+    `ttl`: pass "1h" for callers spaced further apart than the default 5-minute TTL (e.g. the
+    growth mission's hourly ticks) — otherwise every call is a guaranteed cache miss, paying the
+    write premium (1.25x base input) for a cache entry that always expires unread. The 1h TTL
+    writes at 2x instead, but only once per hour instead of never being read at all.
     """
     agent_prompt = agent_prompt_path.read_text(encoding="utf-8")
     guidelines = (_BRAND_DIR / "guidelines.md").read_text(encoding="utf-8")
@@ -33,6 +38,6 @@ def cached_system_message(agent_prompt_path: Path) -> SystemMessage:
     catalog_path = _BRAND_DIR / "equipment_catalog.md"
     if catalog_path.exists():
         static_text += f"\n\n## Equipment/product catalog\n{catalog_path.read_text(encoding='utf-8')}"
-    return SystemMessage(
-        content=[{"type": "text", "text": static_text, "cache_control": {"type": "ephemeral"}}]
-    )
+
+    cache_control = {"type": "ephemeral"} if ttl is None else {"type": "ephemeral", "ttl": ttl}
+    return SystemMessage(content=[{"type": "text", "text": static_text, "cache_control": cache_control}])

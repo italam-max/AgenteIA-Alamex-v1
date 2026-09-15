@@ -1,6 +1,6 @@
 # Agentes de Marketing — MVP Semana 1
 
-Gerente de Marketing (agente supervisor) + Social Media (agente subordinado) sobre LangGraph + API de Claude. La generación de imagen es agnóstica de backend (`integrations/media/`, contrato `MediaGenerator`): por defecto corre localmente (Stable Diffusion vía `diffusers`, sin créditos de API por imagen), y también hay adaptadores hospedados (Leonardo, fal.ai, Gemini, Higgsfield) seleccionables con `MEDIA_GENERATOR` en `.env` — video queda pospuesto por ahora. La publicación es agnóstica de plataforma (`integrations/social/`, contrato `SocialPublisher`): hoy hay adaptadores para Facebook y Mastodon, agregar una red nueva es escribir un adaptador más, sin tocar los agentes. Estado, métricas e imágenes generadas quedan en Supabase.
+Gerente de Marketing (agente supervisor) + Social Media (agente subordinado) sobre LangGraph + API de Claude. La generación de imagen es agnóstica de backend (`integrations/media/`, contrato `MediaGenerator`): por defecto corre localmente (Stable Diffusion vía `diffusers`, sin créditos de API por imagen), y también hay adaptadores hospedados (Leonardo, fal.ai, Gemini, Higgsfield, OpenAI) seleccionables con `MEDIA_GENERATOR` en `.env`. También hay posts de video cortos (experimental): un clip mudo generado por el backend en `VIDEO_GENERATOR` (SiliconFlow por defecto; también Google Veo vía Gemini) con voz narrada de OpenAI encima (`python post_now.py "brief" --video`, o el supervisor/misión de crecimiento eligiéndolo por su cuenta) — ver Setup. Hay un adaptador de video para Higgsfield (`integrations/media/higgsfield_video.py`) pero no está conectado: el plan contratado de Higgsfield para esta cuenta solo expone sus modelos propios (Soul/DoP/Popcorn), no los de terceros (Kling/Seedance/Veo/Sora) que requeriría. La publicación es agnóstica de plataforma (`integrations/social/`, contrato `SocialPublisher`): hoy hay adaptadores para Facebook y Mastodon, agregar una red nueva es escribir un adaptador más, sin tocar los agentes. Estado, métricas e imágenes generadas quedan en Supabase.
 
 ## Setup
 
@@ -17,6 +17,7 @@ Gerente de Marketing (agente supervisor) + Social Media (agente subordinado) sob
    - El modelo (`LOCAL_IMAGE_MODEL_ID`) se descarga automáticamente la primera vez que se genera una imagen (varios GB, puede tardar). Si Hugging Face pide aceptar una licencia para el modelo, crea una cuenta gratis, acéptala en la página del modelo, y genera un token de lectura para `HUGGINGFACE_TOKEN`.
 4. Aplica el esquema en tu proyecto de Supabase: contenido de `scripts/setup_supabase_schema.sql`. También necesitas un bucket público de Storage llamado `post-media` (ver `integrations/supabase_client.py`) para que las imágenes generadas tengan una URL pública mostrable en el dashboard.
 5. Completa `brand/guidelines.md` con la información real de la marca y coloca los logos (`brand/logo_primary.png`, etc.).
+6. (Solo si vas a generar posts de video) Instala `ffmpeg` y agrégalo al PATH — se usa para unir el clip generado con la voz narrada de OpenAI (`integrations/media/video_compositor.py`). En Windows: `choco install ffmpeg`, o descarga un build de https://www.gyan.dev/ffmpeg/builds/ y agrega su carpeta `bin` al PATH. `VIDEO_GENERATOR` en `.env` elige el backend (`siliconflow` por defecto, o `gemini`) — llena las credenciales correspondientes (ver `.env.example`).
 
 ## Validar integraciones antes de correr el flujo completo
 
@@ -39,15 +40,33 @@ El supervisor analiza desempeño reciente y decide cuántos posts hacer y de qu�
 python post_now.py "tema o brief del post, ej. la máquina gearless del MRL-L"
 ```
 
-Salta la planeación semanal (no analiza engagement ni decide cuántos posts) y genera+publica un solo post directo — útil para pruebas o cuando ya sabes exactamente qué quieres publicar.
+Salta la planeación semanal (no analiza engagement ni decide cuántos posts) y genera+publica un solo post directo — útil para pruebas o cuando ya sabes exactamente qué quieres publicar. Agrega `--video` para generar un post de video corto (backend de `VIDEO_GENERATOR` + voz narrada con OpenAI) en vez de imagen — requiere `ffmpeg` instalado y las credenciales del backend de video configuradas (ver Setup).
 
-## Ver qué están haciendo los agentes
+## Misión de crecimiento (experimental, solo Mastodon)
+
+```
+python run_growth_mission.py
+```
+
+Deja al agente corriendo en primer plano, en ciclos (`GROWTH_TICK_MINUTES`), publicando contenido de valor (no solo producto — ver `content_type` en `agents/schemas.py`), respondiendo menciones en nuestras propias publicaciones, y siguiendo cuentas relevantes a los hashtags de `GROWTH_HASHTAGS` hasta alcanzar `GROWTH_TARGET_FOLLOWERS` — solo cuentas genuinamente afines al giro de Alamex, nunca para inflar el número. Nota: en Instagram/TikTok/X esta táctica de follow no es viable vía API oficial (no exponen ese endpoint, o cuesta caro); Mastodon sí lo permite y es donde vive este experimento. **Usa una cuenta de prueba de Mastodon, nunca la cuenta real de la marca**, mientras se evalúa esto. Cada ciclo guarda una foto de los seguidores actuales y las acciones tomadas en Supabase (`growth_snapshots`/`growth_actions`) — la base para eventualmente entrenar un modelo que optimice la estrategia; por ahora el ajuste es una heurística simple sobre esos datos, no un modelo entrenado. Los límites `GROWTH_MAX_FOLLOWS_PER_TICK`/`GROWTH_MAX_REPLIES_PER_TICK` existen para reducir el riesgo de que Mastodon marque la cuenta como spam — empieza conservador.
+
+## Panel de los agentes (recomendado)
+
+```
+cd dashboard-web
+npm install        # solo la primera vez
+npm run dev
+```
+
+Abre `http://localhost:3000`. Corre localmente (Next.js + Supabase, la service role key solo se usa server-side, nunca llega al navegador — ver `dashboard-web/.env.local`). Muestra tarjetas de cada agente (qué hace, qué publicó), el historial de corridas con bitácora en vivo, los posts publicados y la estrategia semanal — y una pestaña de **Configuración** para editar ajustes superficiales sin tocar código ni archivos a mano: tono de marca (`brand/guidelines.md`), plataformas activas y generador de imagen (`.env`), modelo destacado de la semana (`brand/equipment_catalog.md`) y las fotos reales de producto (`brand/product_photos/`, incluye subir una foto nueva y correr el retoque automáticamente). Ver `dashboard-web/README.md` para más detalle.
+
+### Alternativa (Streamlit, solo lectura)
 
 ```
 streamlit run dashboard.py
 ```
 
-Corre localmente y lee directo de Supabase (la service role key nunca sale de tu máquina). Muestra el log de cada corrida (`agent_runs`), la decisión de estrategia semanal (`weekly_strategy`) y los posts generados/publicados por plataforma, con la imagen y el link a la publicación real (`posts`). Alternativa sin instalar nada: Supabase Studio → Table Editor sobre las mismas tres tablas.
+Versión anterior, se mantiene como fallback sin mantenimiento activo. Mismo principio de seguridad (todo local, la service role key nunca sale de tu máquina). Alternativa sin instalar nada: Supabase Studio → Table Editor sobre las tablas `agent_runs`/`weekly_strategy`/`posts`.
 
 ## Tests
 

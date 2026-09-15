@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 from integrations.media.local_diffusers import LocalDiffusersGenerator
 
 
-@patch("integrations.media.local_diffusers.StableDiffusionPipeline")
+@patch("diffusers.StableDiffusionPipeline")
 def test_generate_image_returns_png_bytes_and_caches_pipeline(mock_pipeline_cls):
     fake_image = MagicMock()
     fake_image.save.side_effect = lambda buffer, format: buffer.write(b"fake-png-bytes")

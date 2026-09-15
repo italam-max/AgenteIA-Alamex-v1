@@ -1,7 +1,8 @@
 import io
+from functools import lru_cache
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageOps
 
 _FONTS_DIR = Path(__file__).resolve().parent.parent.parent / "brand" / "fonts"
 _HEADLINE_FONT_PATH = _FONTS_DIR / "ArchivoBlack-Regular.ttf"
@@ -83,34 +84,73 @@ def _render_gradient_text(
     return rgba
 
 
-def _photo_cover_fit(photo_bytes: bytes, size: tuple[int, int]) -> Image.Image:
+def _photo_cover_fit(photo_bytes: bytes, size: tuple[int, int], anchor_bottom: bool = False) -> Image.Image:
+    """
+    `anchor_bottom`: real reference photos (integrations/media/product_retouch.py) always place
+    the product near the bottom of a square canvas. When the target box is a different aspect
+    ratio (e.g. `premium`'s wide photo box), a centered crop cuts into that empty space above the
+    product instead of the product itself — anchoring the crop to the bottom keeps the product in
+    frame. AI-generated backgrounds have no such bias, so they keep the default centered crop.
+    """
     photo = Image.open(io.BytesIO(photo_bytes)).convert("RGB")
-    return ImageOps.fit(photo, size, method=Image.LANCZOS)
+    centering = (0.5, 1.0) if anchor_bottom else (0.5, 0.5)
+    return ImageOps.fit(photo, size, method=Image.LANCZOS, centering=centering)
 
 
-def _composite_logo(canvas: Image.Image, logo_bytes: bytes, position: tuple[int, int], target_width: int, chip: bool) -> None:
-    """Pastes the real logo pixel-for-pixel. `chip` draws a white rounded rectangle behind it
-    first, needed on dark backgrounds where the logo's navy wordmark would disappear."""
-    logo = Image.open(io.BytesIO(logo_bytes)).convert("RGBA")
+# brand/logo_primary.png has no real alpha channel — it's a flat RGB PNG with a solid white
+# background baked into the pixels, not transparency. Color-keying it (deterministic threshold on
+# how close each pixel is to white, not generative) is what makes it composable onto any
+# background without a visible rectangle behind it. _WHITE_KEY_LOW/_HIGH define the falloff band
+# between "definitely logo color" and "definitely background" so edges anti-alias smoothly instead
+# of looking jagged.
+_WHITE_KEY_LOW = 200
+_WHITE_KEY_HIGH = 250
+
+
+@lru_cache(maxsize=1)
+def _load_logo_variants(logo_bytes: bytes) -> tuple[Image.Image, Image.Image]:
+    """
+    Returns (color_logo, white_logo), both with real alpha transparency derived from the flat
+    white background in brand/logo_primary.png. `color_logo` (original navy/gold) is for light
+    backgrounds — brand/guidelines.md calls this the "versión azul/dorado original sobre fondo
+    claro". `white_logo` (recolored solid white, same alpha shape) is for dark backgrounds — the
+    guidelines' "versión blanca sobre fondo oscuro", used instead of the navy wordmark (which would
+    lose contrast on a dark background) and instead of a background chip/box.
+    """
+    r, g, b = Image.open(io.BytesIO(logo_bytes)).convert("RGB").split()
+    whiteness = ImageChops.darker(ImageChops.darker(r, g), b)
+    lut = [
+        round(255 * (1 - max(0.0, min(1.0, (w - _WHITE_KEY_LOW) / (_WHITE_KEY_HIGH - _WHITE_KEY_LOW)))))
+        for w in range(256)
+    ]
+    alpha = whiteness.point(lut)
+    color_logo = Image.merge("RGBA", (r, g, b, alpha))
+    white_band = Image.new("L", color_logo.size, 255)
+    white_logo = Image.merge("RGBA", (white_band, white_band, white_band, alpha))
+    return color_logo, white_logo
+
+
+def _composite_logo(
+    canvas: Image.Image, logo_bytes: bytes, position: tuple[int, int], target_width: int, dark_background: bool
+) -> None:
+    """Pastes the real logo, color-keyed to real transparency (see _load_logo_variants) — no
+    background chip needed on dark backgrounds, just the white recolor variant instead."""
+    color_logo, white_logo = _load_logo_variants(logo_bytes)
+    logo = white_logo if dark_background else color_logo
     scale = target_width / logo.width
     logo = logo.resize((target_width, int(logo.height * scale)), Image.LANCZOS)
-
-    x, y = position
-    if chip:
-        pad = int(target_width * 0.12)
-        chip_box = (x - pad, y - pad, x + logo.width + pad, y + logo.height + pad)
-        ImageDraw.Draw(canvas).rounded_rectangle(chip_box, radius=pad, fill=_WHITE)
-
-    canvas.paste(logo, (x, y), mask=logo)
+    canvas.paste(logo, position, mask=logo)
 
 
-def _compose_infografia(photo_bytes: bytes, logo_bytes: bytes, headline: str, bullets: list[str], width: int, height: int) -> Image.Image:
+def _compose_infografia(
+    photo_bytes: bytes, logo_bytes: bytes, headline: str, bullets: list[str], width: int, height: int, anchor_bottom: bool
+) -> Image.Image:
     panel_width = int(width * 0.44)
     skew = int(width * 0.05)
     margin = int(width * 0.06)
 
     canvas = Image.new("RGB", (width, height), _WHITE)
-    photo_fitted = _photo_cover_fit(photo_bytes, (width, height))
+    photo_fitted = _photo_cover_fit(photo_bytes, (width, height), anchor_bottom)
     mask = Image.new("L", (width, height), 0)
     ImageDraw.Draw(mask).polygon(
         [(panel_width, 0), (width, 0), (width, height), (panel_width - skew, height)], fill=255
@@ -161,11 +201,13 @@ def _compose_infografia(photo_bytes: bytes, logo_bytes: bytes, headline: str, bu
     site_font = ImageFont.truetype(str(_BODY_FONT_PATH), int(width * 0.022))
     draw.text((margin, height - margin), "www.alam.mx", font=site_font, fill=_ACCENT_BLUE)
 
-    _composite_logo(canvas, logo_bytes, (margin, margin), int(width * 0.24), chip=False)
+    _composite_logo(canvas, logo_bytes, (margin, margin), int(width * 0.24), dark_background=False)
     return canvas
 
 
-def _compose_premium(photo_bytes: bytes, logo_bytes: bytes, headline: str, width: int, height: int) -> Image.Image:
+def _compose_premium(
+    photo_bytes: bytes, logo_bytes: bytes, headline: str, width: int, height: int, anchor_bottom: bool
+) -> Image.Image:
     margin = int(width * 0.07)
     canvas = Image.new("RGB", (width, height), _PREMIUM_BG)
     draw = ImageDraw.Draw(canvas)
@@ -189,7 +231,7 @@ def _compose_premium(photo_bytes: bytes, logo_bytes: bytes, headline: str, width
     # the photo box when the headline wraps to 3 lines instead of 1-2.
     photo_top = text_y + len(headline_lines) * line_height + margin
     photo_box = (margin, photo_top, width - margin, height - margin)
-    photo_fitted = _photo_cover_fit(photo_bytes, (photo_box[2] - photo_box[0], photo_box[3] - photo_box[1]))
+    photo_fitted = _photo_cover_fit(photo_bytes, (photo_box[2] - photo_box[0], photo_box[3] - photo_box[1]), anchor_bottom)
     canvas.paste(photo_fitted, (photo_box[0], photo_box[1]))
     draw.rectangle(photo_box, outline=_GOLD_DARK, width=max(2, int(width * 0.004)))
 
@@ -198,12 +240,14 @@ def _compose_premium(photo_bytes: bytes, logo_bytes: bytes, headline: str, width
     site_font = ImageFont.truetype(str(_BODY_FONT_PATH), int(width * 0.02))
     draw.text((margin, height - int(margin * 0.6)), "www.alam.mx", font=site_font, fill=_GOLD_LIGHT, anchor="lm")
 
-    _composite_logo(canvas, logo_bytes, (margin, int(margin * 0.5)), int(width * 0.2), chip=True)
+    _composite_logo(canvas, logo_bytes, (margin, int(margin * 0.5)), int(width * 0.2), dark_background=True)
     return canvas
 
 
-def _compose_hero(photo_bytes: bytes, logo_bytes: bytes, headline: str, width: int, height: int) -> Image.Image:
-    canvas = _photo_cover_fit(photo_bytes, (width, height))
+def _compose_hero(
+    photo_bytes: bytes, logo_bytes: bytes, headline: str, width: int, height: int, anchor_bottom: bool
+) -> Image.Image:
+    canvas = _photo_cover_fit(photo_bytes, (width, height), anchor_bottom)
 
     gradient_h = int(height * 0.45)
     gradient = Image.new("L", (1, gradient_h), 0)
@@ -234,7 +278,7 @@ def _compose_hero(photo_bytes: bytes, logo_bytes: bytes, headline: str, width: i
     site_font = ImageFont.truetype(str(_BODY_FONT_PATH), int(width * 0.02))
     draw.text((margin, height - int(margin * 0.5)), "www.alam.mx", font=site_font, fill=_WHITE, anchor="lm")
 
-    _composite_logo(canvas, logo_bytes, (margin, margin), int(width * 0.2), chip=True)
+    _composite_logo(canvas, logo_bytes, (margin, margin), int(width * 0.2), dark_background=True)
     return canvas
 
 
@@ -245,6 +289,7 @@ def compose_template(
     bullets: list[str],
     aspect_ratio: str = "1:1",
     layout: str = "infografia",
+    anchor_bottom: bool = False,
 ) -> bytes:
     """
     Builds a full graphic post — not just a background photo: a headline (and, in the
@@ -254,15 +299,19 @@ def compose_template(
 
     `layout`: 'infografia' (data panel + photo, diagonal seam), 'premium' (dark/gold, one bold
     headline, no bullets), or 'hero' (full-bleed photo, headline overlaid at the bottom).
+    `anchor_bottom`: pass True when `photo_bytes` is a real reference photo (see
+    integrations/media/product_retouch.py) — those are always composed bottom-anchored on a
+    square canvas, so a crop into a differently-shaped box must anchor to the bottom too, or it
+    cuts into the empty space above the product instead of the product itself.
     """
     width, height = _ASPECT_RATIO_DIMENSIONS.get(aspect_ratio, _ASPECT_RATIO_DIMENSIONS["1:1"])
 
     if layout == "premium":
-        canvas = _compose_premium(photo_bytes, logo_bytes, headline, width, height)
+        canvas = _compose_premium(photo_bytes, logo_bytes, headline, width, height, anchor_bottom)
     elif layout == "hero":
-        canvas = _compose_hero(photo_bytes, logo_bytes, headline, width, height)
+        canvas = _compose_hero(photo_bytes, logo_bytes, headline, width, height, anchor_bottom)
     else:
-        canvas = _compose_infografia(photo_bytes, logo_bytes, headline, bullets, width, height)
+        canvas = _compose_infografia(photo_bytes, logo_bytes, headline, bullets, width, height, anchor_bottom)
 
     buffer = io.BytesIO()
     canvas.save(buffer, format="PNG")

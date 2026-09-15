@@ -7,3 +7,5 @@ venv/
 *.egg-info/
 .claude/
 brand/reference_ads/
+.growth_mission.pid
+.growth_mission.log

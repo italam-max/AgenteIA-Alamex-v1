@@ -2,7 +2,7 @@ import io
 
 from PIL import Image
 
-from integrations.media.template_compositor import _wrap_text, compose_template
+from integrations.media.template_compositor import _load_logo_variants, _wrap_text, compose_template
 
 
 def _solid_png(color=(120, 140, 160), size=(800, 800)) -> bytes:
@@ -35,6 +35,27 @@ def test_compose_template_caps_bullets_at_four():
     bullets = [f"dato {i}" for i in range(10)]
     result = compose_template(_solid_png(), _real_logo_bytes(), "Muchos datos", bullets, "1:1")
     assert Image.open(io.BytesIO(result)).size == (1080, 1080)
+
+
+def test_load_logo_variants_derives_real_transparency_and_white_recolor():
+    color_logo, white_logo = _load_logo_variants(_real_logo_bytes())
+
+    # The source PNG has no real alpha channel (flat white background baked into the pixels) — a
+    # degenerate/failed color-key would leave alpha uniformly 255 everywhere.
+    assert color_logo.mode == "RGBA"
+    alpha_values = set(color_logo.split()[-1].getdata())
+    assert alpha_values != {255}
+    assert 0 in alpha_values  # background corners should key out to fully transparent
+
+    # Corner pixels are background in this logo — should be transparent in both variants.
+    corner_alpha = color_logo.getpixel((0, 0))[3]
+    assert corner_alpha < 10
+
+    # White variant: same alpha shape, but every non-transparent pixel is pure white.
+    assert list(white_logo.split()[-1].getdata()) == list(color_logo.split()[-1].getdata())
+    opaque_pixels = [px for px in white_logo.getdata() if px[3] > 200]
+    assert opaque_pixels  # sanity: the logo mark itself must still be present
+    assert all(px[:3] == (255, 255, 255) for px in opaque_pixels)
 
 
 def test_wrap_text_splits_long_text_to_fit_width():

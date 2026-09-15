@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+from config.settings import settings
 from tools import media_tools
 
 _EXPECTED_PROMPT = "a red bicycle" + media_tools._NO_TEXT_SUFFIX
@@ -16,7 +17,7 @@ def test_generate_image_skips_compositing_when_no_logo_file(mock_get_generator):
         mock_path.exists.return_value = False
         result = media_tools.generate_image.invoke({"prompt": "a red bicycle", "headline": "Título"})
 
-    mock_generator.generate_image.assert_called_once_with(_EXPECTED_PROMPT, "1:1", reference_image=None)
+    mock_generator.generate_image.assert_called_once_with(_EXPECTED_PROMPT, "1:1")
     assert result == b"raw-image-bytes"
     media_tools._load_brand_logo.cache_clear()
 
@@ -37,9 +38,9 @@ def test_generate_image_composes_template_with_generated_photo(mock_get_generato
             {"prompt": "a red bicycle", "headline": "Título", "bullets": ["dato 1", "dato 2"], "layout": "premium"}
         )
 
-    mock_generator.generate_image.assert_called_once_with(_EXPECTED_PROMPT, "1:1", reference_image=b"logo-bytes")
+    mock_generator.generate_image.assert_called_once_with(_EXPECTED_PROMPT, "1:1")
     mock_compose_template.assert_called_once_with(
-        b"raw-photo-bytes", b"logo-bytes", "Título", ["dato 1", "dato 2"], "1:1", "premium"
+        b"raw-photo-bytes", b"logo-bytes", "Título", ["dato 1", "dato 2"], "1:1", "premium", anchor_bottom=False
     )
     assert result == b"composed-image-bytes"
     media_tools._load_brand_logo.cache_clear()
@@ -67,7 +68,30 @@ def test_generate_image_uses_reference_photo_instead_of_generating(
     mock_load_reference_photo.assert_called_once_with("mrlg_cabina.jpg")
     mock_generator.generate_image.assert_not_called()
     mock_compose_template.assert_called_once_with(
-        b"real-product-photo-bytes", b"logo-bytes", "Título", [], "1:1", "infografia"
+        b"real-product-photo-bytes", b"logo-bytes", "Título", [], "1:1", "infografia", anchor_bottom=True
     )
     assert result == b"composed-image-bytes"
     media_tools._load_brand_logo.cache_clear()
+
+
+@patch("tools.media_tools.compose_voiceover_video")
+@patch("tools.media_tools.generate_speech")
+@patch("tools.media_tools.get_video_generator")
+def test_generate_video_pipes_video_generator_and_tts_through_compositor(
+    mock_get_video_generator, mock_generate_speech, mock_compose_voiceover_video
+):
+    mock_generator = MagicMock()
+    mock_generator.generate_video.return_value = b"raw-video-bytes"
+    mock_get_video_generator.return_value = mock_generator
+    mock_generate_speech.return_value = b"raw-audio-bytes"
+    mock_compose_voiceover_video.return_value = b"final-video-bytes"
+
+    result = media_tools.generate_video.invoke(
+        {"prompt": "a machine room being installed", "narration": "En Alamex construimos elevadores sin cuarto de máquinas."}
+    )
+
+    mock_get_video_generator.assert_called_once_with(settings.video_generator)
+    mock_generator.generate_video.assert_called_once_with("a machine room being installed" + media_tools._NO_TEXT_SUFFIX, "9:16")
+    mock_generate_speech.assert_called_once_with("En Alamex construimos elevadores sin cuarto de máquinas.")
+    mock_compose_voiceover_video.assert_called_once_with(b"raw-video-bytes", b"raw-audio-bytes")
+    assert result == b"final-video-bytes"

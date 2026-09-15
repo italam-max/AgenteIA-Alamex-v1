@@ -1,10 +1,7 @@
-import os
-
-import requests
-from higgsfield_client import subscribe
-from tenacity import retry, stop_after_attempt, wait_exponential
+from higgsfield_client.http.client import SyncClient
 
 from config.settings import settings
+from integrations.media._common import DEFAULT_RETRY, download_bytes
 
 # Higgsfield doesn't support 4:5 — map to the closest supported ratio.
 _ASPECT_RATIO_MAP = {
@@ -22,17 +19,16 @@ class HiggsfieldGenerationFailed(Exception):
 class HiggsfieldGenerator:
     """Generates images via Higgsfield AI's hosted Soul model (paid, async job API)."""
 
-    def _ensure_credentials_in_env(self) -> None:
-        # higgsfield_client reads credentials lazily from the process env on first call,
-        # not from a constructor — this project's settings live in .env instead, so wire
-        # them into os.environ right before use.
-        os.environ["HF_KEY"] = f"{settings.higgsfield_api_key_id}:{settings.higgsfield_api_key_secret}"
+    def _client(self) -> SyncClient:
+        # A fresh client built with our own api_key, instead of the package's module-level
+        # singleton (which reads HF_KEY from the process env) — avoids mutating global env state,
+        # which would be unsafe if another key/account were ever used concurrently.
+        return SyncClient(api_key=f"{settings.higgsfield_api_key_id}:{settings.higgsfield_api_key_secret}")
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
+    @DEFAULT_RETRY
     def generate_image(self, prompt: str, aspect_ratio: str = "1:1", reference_image: bytes | None = None) -> bytes:
         # Soul v2 standard is text-to-image only — reference_image is ignored.
-        self._ensure_credentials_in_env()
-        result = subscribe(
+        result = self._client().subscribe(
             settings.higgsfield_model_id,
             arguments={
                 "prompt": prompt,
@@ -45,6 +41,4 @@ class HiggsfieldGenerator:
         if not images:
             raise HiggsfieldGenerationFailed(f"Higgsfield returned no images: {result}")
 
-        image_response = requests.get(images[0]["url"], timeout=60)
-        image_response.raise_for_status()
-        return image_response.content
+        return download_bytes(images[0]["url"])

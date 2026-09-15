@@ -1,0 +1,127 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-body);
+  --font-heading: var(--font-display);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* Alamex system — named after what they are, not what they're for, so they read the same in
+     markup as they do in integrations/media/template_compositor.py's palette. */
+  --color-ink: var(--ink);
+  --color-navy: var(--navy);
+  --color-rail: var(--rail);
+  --color-gold: var(--gold);
+  --color-paper: var(--paper);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --ink: #0a1522;
+  --navy: #0f2b52;
+  --rail: #3c5878;
+  --gold: #d6a13c;
+  --paper: #f1f3f6;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: #ffffff;
+  --card-foreground: var(--ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--ink);
+  --primary: var(--navy);
+  --primary-foreground: #ffffff;
+  --secondary: #e4e9ef;
+  --secondary-foreground: var(--ink);
+  --muted: #e4e9ef;
+  --muted-foreground: #5b6b7d;
+  --accent: #e9edf2;
+  --accent-foreground: var(--ink);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #dde3ea;
+  --input: #dde3ea;
+  --ring: var(--rail);
+  --chart-1: var(--navy);
+  --chart-2: var(--gold);
+  --chart-3: var(--rail);
+  --chart-4: oklch(0.556 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.375rem;
+  --sidebar: var(--ink);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--gold);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: #ffffff1a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #ffffff1a;
+  --sidebar-ring: var(--gold);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Navy-tinted elevation for cards that need to lift off the page — used sparingly (galleries,
+   expandable rows), not the default for every card. Plain classes rather than @theme/@utility so
+   they don't depend on a specific Tailwind v4 minor version's at-rule support. */
+.shadow-card {
+  box-shadow:
+    0 1px 2px rgba(15, 43, 82, 0.06),
+    0 10px 24px rgba(15, 43, 82, 0.08);
+}
+.shadow-card-hover {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.shadow-card-hover:hover {
+  box-shadow:
+    0 2px 4px rgba(15, 43, 82, 0.08),
+    0 20px 36px rgba(15, 43, 82, 0.14);
+  transform: translateY(-2px);
+}

@@ -19,7 +19,7 @@ def _fake_jpeg_bytes() -> bytes:
     return buffer.getvalue()
 
 
-@patch("integrations.media.leonardo.time.sleep", return_value=None)
+@patch("integrations.media._common.time.sleep", return_value=None)
 @patch("integrations.media.leonardo.requests.get")
 @patch("integrations.media.leonardo.requests.post")
 def test_generate_image_polls_until_complete_and_returns_png_bytes(mock_post, mock_get, _sleep):

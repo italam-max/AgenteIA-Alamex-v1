@@ -1,11 +1,10 @@
 import io
-import time
 
 import requests
 from PIL import Image
-from tenacity import retry, stop_after_attempt, wait_exponential
 
 from config.settings import settings
+from integrations.media._common import DEFAULT_RETRY, download_bytes, poll_until
 
 _BASE_URL = "https://cloud.leonardo.ai/api/rest/v1"
 
@@ -32,7 +31,7 @@ class LeonardoGenerator:
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {settings.leonardo_api_key}", "Content-Type": "application/json"}
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))
+    @DEFAULT_RETRY
     def _create_generation(self, prompt: str, width: int, height: int) -> str:
         payload = {
             "prompt": prompt,
@@ -51,8 +50,7 @@ class LeonardoGenerator:
         return response.json()["generations_by_pk"]
 
     def _wait_for_image_url(self, generation_id: str, timeout_s: int = 120, poll_interval_s: int = 3) -> str:
-        deadline = time.monotonic() + timeout_s
-        while time.monotonic() < deadline:
+        def check() -> str | None:
             generation = self._get_generation(generation_id)
             status = generation.get("status")
             if status == "COMPLETE":
@@ -62,8 +60,12 @@ class LeonardoGenerator:
                 raise LeonardoJobFailed(f"Generation {generation_id} completed with no images")
             if status == "FAILED":
                 raise LeonardoJobFailed(f"Generation {generation_id} failed")
-            time.sleep(poll_interval_s)
-        raise LeonardoJobTimeout(f"Generation {generation_id} did not complete within {timeout_s}s")
+            return None
+
+        image_url = poll_until(check, timeout_s=timeout_s, interval_s=poll_interval_s)
+        if image_url is None:
+            raise LeonardoJobTimeout(f"Generation {generation_id} did not complete within {timeout_s}s")
+        return image_url
 
     def generate_image(self, prompt: str, aspect_ratio: str = "1:1", reference_image: bytes | None = None) -> bytes:
         # This adapter only calls the text-to-image endpoint — reference_image is ignored.
@@ -71,7 +73,7 @@ class LeonardoGenerator:
         generation_id = self._create_generation(prompt, width, height)
         image_url = self._wait_for_image_url(generation_id)
 
-        raw_bytes = requests.get(image_url, timeout=60).content
+        raw_bytes = download_bytes(image_url)
         # Leonardo serves JPEG — normalize to PNG so the rest of the pipeline (upload, publish)
         # can keep assuming PNG regardless of which media backend is active.
         image = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
